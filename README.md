@@ -6,10 +6,13 @@ data, produce evidence-backed conclusions, recommend actions, obtain human
 approval, and execute authorized actions.
 
 This repository is being built incrementally across 10 phases (see
-`docs/architecture/`). **Phases 1–4 (Foundation, Identity + Security,
-Enterprise Data, Retrieval + Knowledge Graph) are complete**; later phases
-(agent runtime, decision intelligence, actions + approval, observability +
-evaluation, red-team hardening, deployment) have not been implemented yet.
+`docs/architecture/`). **Phases 1–5 (Foundation, Identity + Security,
+Enterprise Data, Retrieval + Knowledge Graph, Agent Runtime) are
+complete**; later phases (decision intelligence, actions + approval,
+observability + evaluation, red-team hardening, deployment) have not been
+implemented yet. Note: Phase 5's real reasoning provider has not been
+exercised against a live model — see
+`docs/architecture/phase-5-agent-runtime.md`.
 
 ## Repository layout
 ```
@@ -50,6 +53,16 @@ searchable via `/retrieval/search`), with a configurable fraction of
 customers given a deliberate revenue-decline pattern (see
 `docs/architecture/phase-3-enterprise-data.md` and
 `docs/architecture/phase-4-retrieval-knowledge-graph.md`).
+
+Run an investigation agent (requires `FORGE_ANTHROPIC_API_KEY`; without it
+`POST /agents/runs` returns 503):
+```bash
+curl -X POST localhost:8000/agents/runs -H "Authorization: Bearer $TOKEN" \
+  -d '{"question": "Why did revenue decline this quarter?"}'
+```
+The agent can call three tools — SQL query, document search, and
+knowledge-graph lookup — over the tenant's own data; see
+`docs/architecture/phase-5-agent-runtime.md`.
 
 ### Frontend (`apps/web`)
 ```bash

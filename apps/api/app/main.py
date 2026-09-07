@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 
+from app.api.agents import router as agents_router
 from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
 from app.api.data import router as data_router
@@ -34,6 +35,7 @@ app.include_router(data_router)
 app.include_router(documents_router)
 app.include_router(retrieval_router)
 app.include_router(knowledge_graph_router)
+app.include_router(agents_router)
 
 
 @app.middleware("http")

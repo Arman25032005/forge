@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_minutes: int = 30
 
+    # Unset in this development environment — the agent runtime's real
+    # reasoning provider (AnthropicProvider) is implemented but cannot be
+    # exercised end-to-end without one. See docs/architecture/phase-5-agent-runtime.md.
+    anthropic_api_key: str | None = None
+    anthropic_model: str = "claude-opus-5"
+    agent_max_steps: int = 8
+
 
 @lru_cache
 def get_settings() -> Settings:
