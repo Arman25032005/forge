@@ -24,6 +24,7 @@ from app.models.enterprise import (
     Contract,
     Customer,
     Document,
+    DocumentChunk,
     Invoice,
     Product,
     Subscription,
@@ -31,6 +32,8 @@ from app.models.enterprise import (
     Transaction,
 )
 from app.models.organization import Organization
+from app.services.chunking import chunk_text
+from app.services.embeddings import embed
 
 FIRST_NAMES = ["Acme", "Globex", "Initech", "Umbrella", "Stark", "Wayne", "Hooli", "Vandelay"]
 SUFFIXES = ["Corp", "Industries", "Holdings", "Solutions", "Group", "Partners", "Labs"]
@@ -128,20 +131,31 @@ async def generate(
                     )
                 # A document mentioning a competitor, discoverable via search.
                 competitor = rng.choice(COMPETITOR_NAMES)
-                db.add(
-                    Document(
-                        organization_id=org.id,
-                        customer_id=customer.id,
-                        title=f"Account notes: {customer.name}",
-                        source="crm_note",
-                        content=(
-                            f"Customer mentioned evaluating {competitor} as an alternative "
-                            f"during the quarterly business review. Cited pricing and support "
-                            f"response time as concerns. Usage of {product.name} has declined "
-                            f"noticeably over the last two quarters."
-                        ),
-                    )
+                content = (
+                    f"Customer mentioned evaluating {competitor} as an alternative "
+                    f"during the quarterly business review. Cited pricing and support "
+                    f"response time as concerns. Usage of {product.name} has declined "
+                    f"noticeably over the last two quarters."
                 )
+                document = Document(
+                    organization_id=org.id,
+                    customer_id=customer.id,
+                    title=f"Account notes: {customer.name}",
+                    source="crm_note",
+                    content=content,
+                )
+                db.add(document)
+                await db.flush()
+                for chunk_index, chunk in enumerate(chunk_text(content)):
+                    db.add(
+                        DocumentChunk(
+                            organization_id=org.id,
+                            document_id=document.id,
+                            chunk_index=chunk_index,
+                            content=chunk,
+                            embedding=embed(chunk),
+                        )
+                    )
             else:
                 for month_offset in range(6, 0, -1):
                     amount = round(5000 * rng.uniform(0.9, 1.2), 2)

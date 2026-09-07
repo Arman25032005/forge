@@ -6,9 +6,9 @@ data, produce evidence-backed conclusions, recommend actions, obtain human
 approval, and execute authorized actions.
 
 This repository is being built incrementally across 10 phases (see
-`docs/architecture/`). **Phases 1–3 (Foundation, Identity + Security,
-Enterprise Data) are complete**; later phases (retrieval + knowledge graph,
-agent runtime, decision intelligence, actions + approval, observability +
+`docs/architecture/`). **Phases 1–4 (Foundation, Identity + Security,
+Enterprise Data, Retrieval + Knowledge Graph) are complete**; later phases
+(agent runtime, decision intelligence, actions + approval, observability +
 evaluation, red-team hardening, deployment) have not been implemented yet.
 
 ## Repository layout
@@ -45,9 +45,11 @@ Generate synthetic enterprise data for a demo organization:
 python scripts/generate_synthetic_data.py --org-slug acme --customers 200
 ```
 This seeds customers/products/subscriptions/transactions/support
-tickets/contracts/invoices/documents, with a configurable fraction of
+tickets/contracts/invoices/documents (chunked and embedded, so they're
+searchable via `/retrieval/search`), with a configurable fraction of
 customers given a deliberate revenue-decline pattern (see
-`docs/architecture/phase-3-enterprise-data.md`).
+`docs/architecture/phase-3-enterprise-data.md` and
+`docs/architecture/phase-4-retrieval-knowledge-graph.md`).
 
 ### Frontend (`apps/web`)
 ```bash

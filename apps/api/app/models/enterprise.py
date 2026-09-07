@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, Uuid, func
+from sqlalchemy import JSON, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.session import Base
@@ -91,3 +91,16 @@ class Document(TenantScopedMixin, Base):
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     source: Mapped[str] = mapped_column(String(255), nullable=False, default="upload")
     content: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class DocumentChunk(TenantScopedMixin, Base):
+    __tablename__ = "document_chunks"
+
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("documents.id"), nullable=False, index=True
+    )
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    # List[float] produced by app.services.embeddings; see that module for
+    # exactly what kind of vector this is and its known limitations.
+    embedding: Mapped[list[float]] = mapped_column(JSON, nullable=False)

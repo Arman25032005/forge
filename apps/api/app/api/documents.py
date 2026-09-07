@@ -7,9 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import AuthContext, require_permission
 from app.core.permissions import Permission
 from app.db.session import get_db
-from app.models.enterprise import Document
+from app.models.enterprise import Document, DocumentChunk
 from app.schemas.documents import DocumentCreate, DocumentOut
 from app.services.audit import record_event
+from app.services.chunking import chunk_text
+from app.services.embeddings import embed
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -28,6 +30,19 @@ async def ingest_document(
         content=payload.content,
     )
     db.add(document)
+    await db.flush()
+
+    for index, chunk in enumerate(chunk_text(document.content)):
+        db.add(
+            DocumentChunk(
+                organization_id=auth.organization_id,
+                document_id=document.id,
+                chunk_index=index,
+                content=chunk,
+                embedding=embed(chunk),
+            )
+        )
+
     await db.commit()
     await db.refresh(document)
 
