@@ -6,9 +6,9 @@ data, produce evidence-backed conclusions, recommend actions, obtain human
 approval, and execute authorized actions.
 
 This repository is being built incrementally across 10 phases (see
-`docs/architecture/`). **Phase 1 (Foundation) is complete**; later phases
-(identity/security, enterprise data, retrieval + knowledge graph, agent
-runtime, decision intelligence, actions + approval, observability +
+`docs/architecture/`). **Phases 1–3 (Foundation, Identity + Security,
+Enterprise Data) are complete**; later phases (retrieval + knowledge graph,
+agent runtime, decision intelligence, actions + approval, observability +
 evaluation, red-team hardening, deployment) have not been implemented yet.
 
 ## Repository layout
@@ -37,6 +37,17 @@ uvicorn app.main:app --reload
 
 Run tests: `pytest -q`
 Lint/format/type-check: `ruff check .`, `ruff format .`, `mypy app`
+
+Apply migrations: `alembic upgrade head`
+
+Generate synthetic enterprise data for a demo organization:
+```bash
+python scripts/generate_synthetic_data.py --org-slug acme --customers 200
+```
+This seeds customers/products/subscriptions/transactions/support
+tickets/contracts/invoices/documents, with a configurable fraction of
+customers given a deliberate revenue-decline pattern (see
+`docs/architecture/phase-3-enterprise-data.md`).
 
 ### Frontend (`apps/web`)
 ```bash
