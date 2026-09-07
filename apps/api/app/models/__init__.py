@@ -15,6 +15,7 @@ from app.models.enterprise import (
     Transaction,
 )
 from app.models.organization import Organization
+from app.models.refresh_token import RefreshToken
 from app.models.user import Role, User
 
 __all__ = [
@@ -31,6 +32,7 @@ __all__ = [
     "Invoice",
     "Organization",
     "Product",
+    "RefreshToken",
     "Role",
     "Subscription",
     "SupportTicket",

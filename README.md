@@ -6,16 +6,17 @@ data, produce evidence-backed conclusions, recommend actions, obtain human
 approval, and execute authorized actions.
 
 This repository is being built incrementally across 10 phases (see
-`docs/architecture/`). **Phases 1–8 (Foundation, Identity + Security,
+`docs/architecture/`). **Phases 1–9 (Foundation, Identity + Security,
 Enterprise Data, Retrieval + Knowledge Graph, Agent Runtime, Decision
-Intelligence, Actions + Approval, Observability + Evaluation) are
-complete**; later phases (red-team hardening, deployment) have not been
-implemented yet. Note: Phases 5 and 6's real Claude-backed providers (and
-Phase 8's agent evaluation, which depends on them) have not been
-exercised against a live model — see
+Intelligence, Actions + Approval, Observability + Evaluation, Red-Team
+Hardening) are complete**; only deployment has not been implemented yet.
+Note: Phases 5 and 6's real Claude-backed providers (and Phase 8's agent
+evaluation and Phase 9's prompt-injection hardening, both of which depend
+on them) have not been exercised against a live model — see
 `docs/architecture/phase-5-agent-runtime.md`,
-`docs/architecture/phase-6-decision-intelligence.md`, and
-`docs/architecture/phase-8-observability-evaluation.md`.
+`docs/architecture/phase-6-decision-intelligence.md`,
+`docs/architecture/phase-8-observability-evaluation.md`, and
+`docs/architecture/phase-9-red-team-hardening.md`.
 
 ## Repository layout
 ```
@@ -100,6 +101,16 @@ python scripts/evaluate_retrieval.py --org-slug acme
 but requires `FORGE_ANTHROPIC_API_KEY` and has not been run in this
 environment; see `docs/architecture/phase-8-observability-evaluation.md`
 for real, measured retrieval-quality numbers.
+
+Auth now issues a refresh token alongside the access token, with
+rotation on every use and revocation on logout:
+```bash
+curl -X POST localhost:8000/auth/refresh -d '{"refresh_token": "..."}'
+curl -X POST localhost:8000/auth/logout -d '{"refresh_token": "..."}'
+```
+`/auth/login` and `/auth/register` are rate-limited (429 after repeated
+attempts); see `docs/architecture/phase-9-red-team-hardening.md` for the
+two real bugs found and fixed while building this phase.
 
 ### Frontend (`apps/web`)
 ```bash

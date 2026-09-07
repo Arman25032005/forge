@@ -18,6 +18,15 @@ class Settings(BaseSettings):
     jwt_secret: str = "dev-only-secret-change-me-please-32bytes-min"
     jwt_algorithm: str = "HS256"
     jwt_access_token_minutes: int = 30
+    refresh_token_days: int = 7
+
+    # "memory" (default, this environment) or "redis" (multi-instance
+    # deployments — not exercised here, no live Redis; see rate_limit.py).
+    rate_limit_backend: str = "memory"
+    login_rate_limit_max: int = 5
+    login_rate_limit_window_seconds: int = 60
+    register_rate_limit_max: int = 5
+    register_rate_limit_window_seconds: int = 60
 
     # Unset in this development environment — the agent runtime's real
     # reasoning provider (AnthropicProvider) is implemented but cannot be

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.metrics import actions_total
 from app.models.action import Action
+from app.models.decision import Decision
 from app.services.action_types import ACTION_TYPES_BY_NAME, ActionExecutionError
 
 
@@ -17,6 +18,11 @@ class ActionStateError(Exception):
 class ActionPermissionError(Exception):
     """Raised for authorization rules the caller's role alone can't
     express, e.g. maker-checker (can't approve your own proposal)."""
+
+
+class ActionReferenceError(Exception):
+    """Raised when a proposed action references another tenant's data —
+    e.g. a decision_id that exists, just not in the caller's organization."""
 
 
 async def propose_action(
@@ -31,6 +37,15 @@ async def propose_action(
 ) -> Action:
     if action_type not in ACTION_TYPES_BY_NAME:
         raise ActionExecutionError(f"unknown action type: {action_type}")
+
+    if decision_id is not None:
+        result = await db.execute(
+            select(Decision).where(
+                Decision.id == decision_id, Decision.organization_id == organization_id
+            )
+        )
+        if result.scalar_one_or_none() is None:
+            raise ActionReferenceError(f"no decision found with id {decision_id}")
 
     action = Action(
         organization_id=organization_id,

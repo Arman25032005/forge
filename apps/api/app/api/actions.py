@@ -12,6 +12,7 @@ from app.schemas.action import ActionCreate, ActionOut
 from app.services.action_types import ACTION_TYPES_BY_NAME
 from app.services.actions import (
     ActionPermissionError,
+    ActionReferenceError,
     ActionStateError,
     approve_action,
     execute_action,
@@ -43,15 +44,18 @@ async def create_action(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"unknown action type: {payload.action_type}",
         )
-    action = await propose_action(
-        db,
-        organization_id=auth.organization_id,
-        proposed_by=auth.user_id,
-        decision_id=payload.decision_id,
-        action_type=payload.action_type,
-        description=payload.description,
-        parameters=payload.parameters,
-    )
+    try:
+        action = await propose_action(
+            db,
+            organization_id=auth.organization_id,
+            proposed_by=auth.user_id,
+            decision_id=payload.decision_id,
+            action_type=payload.action_type,
+            description=payload.description,
+            parameters=payload.parameters,
+        )
+    except ActionReferenceError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return ActionOut.model_validate(action)
 
 

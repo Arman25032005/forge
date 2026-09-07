@@ -9,6 +9,18 @@ from app.main import app
 
 # Every model must be imported so Base.metadata.create_all sees its table.
 from app.models import AuditLog, Organization, User  # noqa: F401
+from app.services.rate_limit import get_rate_limiter
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    # get_rate_limiter() is a process-wide lru_cache singleton so rate
+    # limits are shared across requests within one running server — but
+    # that means state would otherwise leak between tests too, since the
+    # test suite runs in a single process. Reset it before every test.
+    get_rate_limiter.cache_clear()
+    yield
+    get_rate_limiter.cache_clear()
 
 
 @pytest_asyncio.fixture

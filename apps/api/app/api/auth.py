@@ -1,22 +1,36 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import AuthContext, get_auth_context
+from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.session import get_db
 from app.models.organization import Organization
 from app.models.user import User
 from app.schemas.auth import (
     LoginRequest,
+    LogoutRequest,
     OrganizationCreate,
+    RefreshRequest,
     TokenResponse,
     UserOut,
     UserRegister,
 )
 from app.services.audit import record_event
+from app.services.rate_limit import get_rate_limiter
+from app.services.refresh_tokens import (
+    RefreshTokenError,
+    issue_refresh_token,
+    revoke_refresh_token,
+    rotate_refresh_token,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def _client_ip(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
 
 
 async def _get_organization_by_slug(db: AsyncSession, slug: str) -> Organization | None:
@@ -40,7 +54,20 @@ async def register_organization(
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-async def register_user(payload: UserRegister, db: AsyncSession = Depends(get_db)) -> User:
+async def register_user(
+    payload: UserRegister, request: Request, db: AsyncSession = Depends(get_db)
+) -> User:
+    settings = get_settings()
+    allowed = await get_rate_limiter().check(
+        f"register:{_client_ip(request)}",
+        max_requests=settings.register_rate_limit_max,
+        window_seconds=settings.register_rate_limit_window_seconds,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="too many registration attempts"
+        )
+
     org = await _get_organization_by_slug(db, payload.organization_slug)
     if org is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="organization not found")
@@ -73,6 +100,17 @@ async def register_user(payload: UserRegister, db: AsyncSession = Depends(get_db
 
 @router.post("/login", response_model=TokenResponse)
 async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+    settings = get_settings()
+    allowed = await get_rate_limiter().check(
+        f"login:{payload.organization_slug}:{payload.email}",
+        max_requests=settings.login_rate_limit_max,
+        window_seconds=settings.login_rate_limit_window_seconds,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="too many login attempts"
+        )
+
     org = await _get_organization_by_slug(db, payload.organization_slug)
     generic_error = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid credentials"
@@ -103,7 +141,47 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> To
         db, organization_id=org.id, user_id=user.id, action="user.login", resource="auth"
     )
     token = create_access_token(user_id=user.id, organization_id=org.id, role=user.role)
-    return TokenResponse(access_token=token)
+    refresh_token = await issue_refresh_token(
+        db, user_id=user.id, organization_id=org.id, ttl_days=settings.refresh_token_days
+    )
+    await db.commit()
+    return TokenResponse(access_token=token, refresh_token=refresh_token)
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh(payload: RefreshRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+    settings = get_settings()
+    try:
+        row, new_raw_token = await rotate_refresh_token(
+            db, payload.refresh_token, ttl_days=settings.refresh_token_days
+        )
+    except RefreshTokenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid refresh token"
+        ) from exc
+
+    result = await db.execute(select(User).where(User.id == row.user_id))
+    user = result.scalar_one_or_none()
+    if user is None or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid refresh token"
+        )
+
+    access_token = create_access_token(
+        user_id=user.id, organization_id=row.organization_id, role=user.role
+    )
+    return TokenResponse(access_token=access_token, refresh_token=new_raw_token)
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(payload: LogoutRequest, db: AsyncSession = Depends(get_db)) -> None:
+    try:
+        await revoke_refresh_token(db, payload.refresh_token)
+    except RefreshTokenError:
+        # Logging out with an already-invalid token has no observable
+        # difference from a successful logout — both leave the token
+        # unusable — so this doesn't leak whether the token ever existed.
+        pass
 
 
 @router.get("/me", response_model=UserOut)
