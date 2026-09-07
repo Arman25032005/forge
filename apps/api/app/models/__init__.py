@@ -1,5 +1,6 @@
 from app.models.agent import AgentRun, AgentStep
 from app.models.audit import AuditLog
+from app.models.decision import Decision
 from app.models.enterprise import (
     Contract,
     Customer,
@@ -21,6 +22,7 @@ __all__ = [
     "AuditLog",
     "Contract",
     "Customer",
+    "Decision",
     "Document",
     "DocumentChunk",
     "Employee",

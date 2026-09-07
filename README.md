@@ -6,13 +6,14 @@ data, produce evidence-backed conclusions, recommend actions, obtain human
 approval, and execute authorized actions.
 
 This repository is being built incrementally across 10 phases (see
-`docs/architecture/`). **Phases 1–5 (Foundation, Identity + Security,
-Enterprise Data, Retrieval + Knowledge Graph, Agent Runtime) are
-complete**; later phases (decision intelligence, actions + approval,
+`docs/architecture/`). **Phases 1–6 (Foundation, Identity + Security,
+Enterprise Data, Retrieval + Knowledge Graph, Agent Runtime, Decision
+Intelligence) are complete**; later phases (actions + approval,
 observability + evaluation, red-team hardening, deployment) have not been
-implemented yet. Note: Phase 5's real reasoning provider has not been
-exercised against a live model — see
-`docs/architecture/phase-5-agent-runtime.md`.
+implemented yet. Note: Phases 5 and 6's real Claude-backed providers have
+not been exercised against a live model — see
+`docs/architecture/phase-5-agent-runtime.md` and
+`docs/architecture/phase-6-decision-intelligence.md`.
 
 ## Repository layout
 ```
@@ -63,6 +64,16 @@ curl -X POST localhost:8000/agents/runs -H "Authorization: Bearer $TOKEN" \
 The agent can call three tools — SQL query, document search, and
 knowledge-graph lookup — over the tenant's own data; see
 `docs/architecture/phase-5-agent-runtime.md`.
+
+Once a run's `status` is `completed`, turn its trace into a structured,
+evidence-backed conclusion:
+```bash
+curl -X POST localhost:8000/agents/runs/$RUN_ID/decision -H "Authorization: Bearer $TOKEN"
+```
+This returns a conclusion, a confidence score, evidence citations back
+into the run's own steps (a citation to a step that doesn't exist in the
+run is rejected, not trusted), and recommended actions; see
+`docs/architecture/phase-6-decision-intelligence.md`.
 
 ### Frontend (`apps/web`)
 ```bash
