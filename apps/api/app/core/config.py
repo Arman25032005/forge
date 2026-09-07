@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
+    jwt_secret: str = "dev-only-secret-change-me-please-32bytes-min"
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_minutes: int = 30
+
 
 @lru_cache
 def get_settings() -> Settings:
