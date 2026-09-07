@@ -3,9 +3,10 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.metrics import decisions_synthesized_total
 from app.models.agent import AgentRun, AgentStep
 from app.models.decision import Decision
-from app.services.decision_synthesis import DecisionSynthesizer, StepSummary
+from app.services.decision_synthesis import DecisionSynthesisError, DecisionSynthesizer, StepSummary
 
 
 async def synthesize_and_persist_decision(
@@ -25,7 +26,12 @@ async def synthesize_and_persist_decision(
         for step in steps
     ]
 
-    draft = await synthesizer.synthesize(run.question, summaries)
+    try:
+        draft = await synthesizer.synthesize(run.question, summaries)
+    except DecisionSynthesisError:
+        decisions_synthesized_total.labels(outcome="error").inc()
+        raise
+    decisions_synthesized_total.labels(outcome="ok").inc()
 
     decision = Decision(
         organization_id=run.organization_id,

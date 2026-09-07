@@ -4,6 +4,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.metrics import actions_total
 from app.models.action import Action
 from app.services.action_types import ACTION_TYPES_BY_NAME, ActionExecutionError
 
@@ -43,6 +44,7 @@ async def propose_action(
     db.add(action)
     await db.commit()
     await db.refresh(action)
+    actions_total.labels(action_type=action.action_type, status=action.status).inc()
     return action
 
 
@@ -65,6 +67,7 @@ async def approve_action(db: AsyncSession, action: Action, approved_by: uuid.UUI
     action.approved_by = approved_by
     await db.commit()
     await db.refresh(action)
+    actions_total.labels(action_type=action.action_type, status=action.status).inc()
     return action
 
 
@@ -76,6 +79,7 @@ async def reject_action(db: AsyncSession, action: Action, rejected_by: uuid.UUID
     action.approved_by = rejected_by
     await db.commit()
     await db.refresh(action)
+    actions_total.labels(action_type=action.action_type, status=action.status).inc()
     return action
 
 
@@ -95,4 +99,5 @@ async def execute_action(db: AsyncSession, action: Action) -> Action:
     action.executed_at = datetime.datetime.now(datetime.UTC)
     await db.commit()
     await db.refresh(action)
+    actions_total.labels(action_type=action.action_type, status=action.status).inc()
     return action

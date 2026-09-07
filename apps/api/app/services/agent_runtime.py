@@ -2,6 +2,7 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.metrics import agent_runs_total, agent_tool_calls_total
 from app.core.permissions import role_has_permission
 from app.models.agent import AgentRun, AgentStep
 from app.models.user import Role
@@ -37,6 +38,7 @@ async def run_agent(
             run.final_answer = action.final_answer
             await db.commit()
             await db.refresh(run)
+            agent_runs_total.labels(status=run.status).inc()
             return run
 
         tool_input = action.tool_input or {}
@@ -53,6 +55,10 @@ async def run_agent(
                 tool_output = await tool.run(db, organization_id, tool_input)
             except ToolExecutionError as exc:
                 tool_error = str(exc)
+
+        agent_tool_calls_total.labels(
+            tool_name=action.tool_name or "unknown", outcome="error" if tool_error else "ok"
+        ).inc()
 
         db.add(
             AgentStep(
@@ -77,4 +83,5 @@ async def run_agent(
     run.status = "max_steps_exceeded"
     await db.commit()
     await db.refresh(run)
+    agent_runs_total.labels(status=run.status).inc()
     return run

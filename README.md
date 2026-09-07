@@ -6,14 +6,16 @@ data, produce evidence-backed conclusions, recommend actions, obtain human
 approval, and execute authorized actions.
 
 This repository is being built incrementally across 10 phases (see
-`docs/architecture/`). **Phases 1–7 (Foundation, Identity + Security,
+`docs/architecture/`). **Phases 1–8 (Foundation, Identity + Security,
 Enterprise Data, Retrieval + Knowledge Graph, Agent Runtime, Decision
-Intelligence, Actions + Approval) are complete**; later phases
-(observability + evaluation, red-team hardening, deployment) have not
-been implemented yet. Note: Phases 5 and 6's real Claude-backed providers
-have not been exercised against a live model — see
-`docs/architecture/phase-5-agent-runtime.md` and
-`docs/architecture/phase-6-decision-intelligence.md`.
+Intelligence, Actions + Approval, Observability + Evaluation) are
+complete**; later phases (red-team hardening, deployment) have not been
+implemented yet. Note: Phases 5 and 6's real Claude-backed providers (and
+Phase 8's agent evaluation, which depends on them) have not been
+exercised against a live model — see
+`docs/architecture/phase-5-agent-runtime.md`,
+`docs/architecture/phase-6-decision-intelligence.md`, and
+`docs/architecture/phase-8-observability-evaluation.md`.
 
 ## Repository layout
 ```
@@ -87,6 +89,17 @@ Only two action types have a real side effect against this app's own
 data (`flag_customer_at_risk`, `create_support_ticket`) — there's no
 external CRM/email integration to execute against; see
 `docs/architecture/phase-7-actions-approval.md`.
+
+Prometheus metrics are exposed at `GET /metrics`. Evaluate retrieval
+quality against real generated data (no API key needed — this is fully
+deterministic):
+```bash
+python scripts/evaluate_retrieval.py --org-slug acme
+```
+`scripts/evaluate_agent.py` evaluates agent answer quality the same way
+but requires `FORGE_ANTHROPIC_API_KEY` and has not been run in this
+environment; see `docs/architecture/phase-8-observability-evaluation.md`
+for real, measured retrieval-quality numbers.
 
 ### Frontend (`apps/web`)
 ```bash
