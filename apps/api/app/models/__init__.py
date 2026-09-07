@@ -1,3 +1,4 @@
+from app.models.action import Action
 from app.models.agent import AgentRun, AgentStep
 from app.models.audit import AuditLog
 from app.models.decision import Decision
@@ -17,6 +18,7 @@ from app.models.organization import Organization
 from app.models.user import Role, User
 
 __all__ = [
+    "Action",
     "AgentRun",
     "AgentStep",
     "AuditLog",

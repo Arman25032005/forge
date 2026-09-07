@@ -6,12 +6,12 @@ data, produce evidence-backed conclusions, recommend actions, obtain human
 approval, and execute authorized actions.
 
 This repository is being built incrementally across 10 phases (see
-`docs/architecture/`). **Phases 1–6 (Foundation, Identity + Security,
+`docs/architecture/`). **Phases 1–7 (Foundation, Identity + Security,
 Enterprise Data, Retrieval + Knowledge Graph, Agent Runtime, Decision
-Intelligence) are complete**; later phases (actions + approval,
-observability + evaluation, red-team hardening, deployment) have not been
-implemented yet. Note: Phases 5 and 6's real Claude-backed providers have
-not been exercised against a live model — see
+Intelligence, Actions + Approval) are complete**; later phases
+(observability + evaluation, red-team hardening, deployment) have not
+been implemented yet. Note: Phases 5 and 6's real Claude-backed providers
+have not been exercised against a live model — see
 `docs/architecture/phase-5-agent-runtime.md` and
 `docs/architecture/phase-6-decision-intelligence.md`.
 
@@ -74,6 +74,19 @@ This returns a conclusion, a confidence score, evidence citations back
 into the run's own steps (a citation to a step that doesn't exist in the
 run is rejected, not trusted), and recommended actions; see
 `docs/architecture/phase-6-decision-intelligence.md`.
+
+Propose and approve an action (maker-checker: the proposer cannot approve
+their own proposal):
+```bash
+curl -X POST localhost:8000/actions -H "Authorization: Bearer $PROPOSER_TOKEN" \
+  -d '{"action_type": "flag_customer_at_risk", "description": "...", "parameters": {"customer_id": "..."}}'
+curl -X POST localhost:8000/actions/$ACTION_ID/approve -H "Authorization: Bearer $APPROVER_TOKEN"
+curl -X POST localhost:8000/actions/$ACTION_ID/execute -H "Authorization: Bearer $APPROVER_TOKEN"
+```
+Only two action types have a real side effect against this app's own
+data (`flag_customer_at_risk`, `create_support_ticket`) — there's no
+external CRM/email integration to execute against; see
+`docs/architecture/phase-7-actions-approval.md`.
 
 ### Frontend (`apps/web`)
 ```bash
