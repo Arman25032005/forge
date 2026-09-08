@@ -57,3 +57,12 @@ async def get_decision_for_run(
         .order_by(Decision.created_at.desc())
     )
     return result.scalars().first()
+
+
+async def list_decisions(db: AsyncSession, organization_id: uuid.UUID) -> list[Decision]:
+    result = await db.execute(
+        select(Decision)
+        .where(Decision.organization_id == organization_id)
+        .order_by(Decision.created_at.desc())
+    )
+    return list(result.scalars().all())

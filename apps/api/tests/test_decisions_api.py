@@ -3,6 +3,7 @@ import uuid
 import pytest
 
 from app.models.agent import AgentRun
+from app.models.decision import Decision
 
 
 async def _setup_admin(client, slug, email):
@@ -83,3 +84,35 @@ async def test_decision_is_tenant_isolated(client, db_session) -> None:
     )
     # the owner's run exists, but no decision has been synthesized for it yet
     assert resp_owner.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_list_decisions_is_tenant_scoped(client, db_session) -> None:
+    token_a, org_a = await _setup_admin(client, "decision-list-a", "a@dla.com")
+    token_b, org_b = await _setup_admin(client, "decision-list-b", "a@dlb.com")
+
+    for org_id in (org_a, org_b):
+        run = AgentRun(
+            organization_id=org_id, user_id=uuid.uuid4(), question="q", status="completed"
+        )
+        db_session.add(run)
+        await db_session.flush()
+        db_session.add(
+            Decision(
+                organization_id=org_id,
+                run_id=run.id,
+                conclusion="x",
+                confidence=0.5,
+                evidence=[],
+                recommended_actions=[],
+            )
+        )
+    await db_session.commit()
+
+    resp_a = await client.get("/decisions", headers={"Authorization": f"Bearer {token_a}"})
+    assert resp_a.status_code == 200
+    assert len(resp_a.json()) == 1
+
+    resp_b = await client.get("/decisions", headers={"Authorization": f"Bearer {token_b}"})
+    assert len(resp_b.json()) == 1
+    assert resp_a.json()[0]["id"] != resp_b.json()[0]["id"]

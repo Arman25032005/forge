@@ -3,6 +3,7 @@ import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
 from app.api.actions import router as actions_router
@@ -10,6 +11,7 @@ from app.api.agents import router as agents_router
 from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
 from app.api.data import router as data_router
+from app.api.decisions import router as decisions_router
 from app.api.documents import router as documents_router
 from app.api.health import router as health_router
 from app.api.knowledge_graph import router as knowledge_graph_router
@@ -31,6 +33,16 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="FORGE API", version="0.1.0", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    # Local dev only: the Next.js dev server runs on a different port than
+    # the API. A real deployment should restrict this to the actual
+    # frontend origin(s) rather than all localhost ports.
+    allow_origin_regex=r"http://localhost:\d+",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(audit_router)
@@ -39,6 +51,7 @@ app.include_router(documents_router)
 app.include_router(retrieval_router)
 app.include_router(knowledge_graph_router)
 app.include_router(agents_router)
+app.include_router(decisions_router)
 app.include_router(actions_router)
 
 
