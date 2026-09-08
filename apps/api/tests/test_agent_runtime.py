@@ -6,7 +6,7 @@ from sqlalchemy import select
 from app.models.enterprise import Customer
 from app.models.user import Role
 from app.services.agent_runtime import run_agent
-from app.services.llm import AgentAction, StepRecord
+from app.services.llm import AgentAction, ProviderError, StepRecord
 
 
 class ScriptedProvider:
@@ -28,6 +28,15 @@ class LoopingProvider:
 
     async def next_action(self, question, history, tools) -> AgentAction:  # noqa: ANN001
         return AgentAction(kind="tool_call", tool_name="sql_query", tool_input={"sql": "SELECT 1"})
+
+
+class FailingProvider:
+    """Raises ProviderError on the first call — simulates a real SDK-level
+    failure (rate limit, request-too-large) found live against Groq's
+    free tier, which used to crash the whole HTTP request with a 500."""
+
+    async def next_action(self, question, history, tools) -> AgentAction:  # noqa: ANN001
+        raise ProviderError("Groq API error: 413 request too large")
 
 
 @pytest.mark.asyncio
@@ -105,6 +114,22 @@ async def test_run_agent_stops_at_max_steps(db_session) -> None:
     )
     assert run.status == "max_steps_exceeded"
     assert run.final_answer is None
+
+
+@pytest.mark.asyncio
+async def test_run_agent_fails_cleanly_on_provider_error(db_session) -> None:
+    org_id = uuid.uuid4()
+    run = await run_agent(
+        db_session,
+        organization_id=org_id,
+        user_id=uuid.uuid4(),
+        role=Role.ANALYST,
+        question="q",
+        provider=FailingProvider(),
+    )
+    assert run.status == "failed"
+    assert run.error is not None
+    assert "413" in run.error
 
 
 @pytest.mark.asyncio

@@ -6,17 +6,15 @@ data, produce evidence-backed conclusions, recommend actions, obtain human
 approval, and execute authorized actions.
 
 This repository is being built incrementally across 10 phases (see
-`docs/architecture/`). **Phases 1–9 (Foundation, Identity + Security,
-Enterprise Data, Retrieval + Knowledge Graph, Agent Runtime, Decision
-Intelligence, Actions + Approval, Observability + Evaluation, Red-Team
-Hardening) are complete**; only deployment has not been implemented yet.
-Note: Phases 5 and 6's real Claude-backed providers (and Phase 8's agent
-evaluation and Phase 9's prompt-injection hardening, both of which depend
-on them) have not been exercised against a live model — see
-`docs/architecture/phase-5-agent-runtime.md`,
-`docs/architecture/phase-6-decision-intelligence.md`,
-`docs/architecture/phase-8-observability-evaluation.md`, and
-`docs/architecture/phase-9-red-team-hardening.md`.
+`docs/architecture/`), plus a Phase 10 that added a Groq-backed reasoning
+provider and ran the agent/decision pipeline against a live model for the
+first time — see `docs/architecture/phase-10-groq-and-frontend.md` for
+three real bugs that surfaced only from that live run (SQL alias
+handling, missing schema info, uncaught provider errors), all now fixed
+and regression-tested. **Phases 1–9 are complete**; only deployment has
+not been implemented. The Claude-backed providers (Phases 5/6) remain
+unverified against a live model — only Groq has been exercised live so
+far.
 
 ## Repository layout
 ```
@@ -58,8 +56,9 @@ customers given a deliberate revenue-decline pattern (see
 `docs/architecture/phase-3-enterprise-data.md` and
 `docs/architecture/phase-4-retrieval-knowledge-graph.md`).
 
-Run an investigation agent (requires `FORGE_ANTHROPIC_API_KEY`; without it
-`POST /agents/runs` returns 503):
+Run an investigation agent (requires `FORGE_GROQ_API_KEY` or
+`FORGE_ANTHROPIC_API_KEY`; without either, `POST /agents/runs` returns
+503 — Groq is used if both are set):
 ```bash
 curl -X POST localhost:8000/agents/runs -H "Authorization: Bearer $TOKEN" \
   -d '{"question": "Why did revenue decline this quarter?"}'

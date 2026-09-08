@@ -24,6 +24,7 @@ class AgentRunOut(BaseModel):
     question: str
     status: str
     final_answer: str | None
+    error: str | None = None
     created_at: datetime
     steps: list[AgentStepOut] = []
 

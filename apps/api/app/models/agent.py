@@ -14,6 +14,7 @@ class AgentRun(TenantScopedMixin, Base):
     question: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="running")
     final_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class AgentStep(TenantScopedMixin, Base):

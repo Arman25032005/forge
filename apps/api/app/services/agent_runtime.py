@@ -6,7 +6,7 @@ from app.core.metrics import agent_runs_total, agent_tool_calls_total
 from app.core.permissions import role_has_permission
 from app.models.agent import AgentRun, AgentStep
 from app.models.user import Role
-from app.services.llm import AgentAction, LLMProvider, StepRecord
+from app.services.llm import AgentAction, LLMProvider, ProviderError, StepRecord
 from app.services.tools import TOOLS, TOOLS_BY_NAME, ToolExecutionError
 
 MAX_STEPS_DEFAULT = 8
@@ -31,7 +31,15 @@ async def run_agent(
     history: list[StepRecord] = []
 
     for step_index in range(max_steps):
-        action: AgentAction = await provider.next_action(question, history, TOOLS)
+        try:
+            action: AgentAction = await provider.next_action(question, history, TOOLS)
+        except ProviderError as exc:
+            run.status = "failed"
+            run.error = str(exc)
+            await db.commit()
+            await db.refresh(run)
+            agent_runs_total.labels(status=run.status).inc()
+            return run
 
         if action.kind == "final_answer":
             run.status = "completed"

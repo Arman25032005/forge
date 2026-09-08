@@ -6,7 +6,12 @@ from app.core.permissions import Permission
 from app.db.session import get_db
 from app.schemas.data import SQLQueryRequest, SQLQueryResponse
 from app.services.audit import record_event
-from app.services.sql_tool import ALLOWED_TABLES, SQLValidationError, execute_sql_tool
+from app.services.sql_tool import (
+    ALLOWED_TABLES,
+    TABLE_MODELS,
+    SQLValidationError,
+    execute_sql_tool,
+)
 
 router = APIRouter(prefix="/data", tags=["data"])
 
@@ -15,7 +20,11 @@ router = APIRouter(prefix="/data", tags=["data"])
 async def data_catalog(
     auth: AuthContext = Depends(require_permission(Permission.DATA_QUERY)),
 ) -> dict:
-    return {"tables": sorted(ALLOWED_TABLES)}
+    tables = {
+        name: [c.name for c in model.__table__.columns if c.name != "organization_id"]
+        for name, model in sorted(TABLE_MODELS.items())
+    }
+    return {"tables": sorted(ALLOWED_TABLES), "schema": tables}
 
 
 @router.post("/query", response_model=SQLQueryResponse)

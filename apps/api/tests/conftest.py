@@ -4,6 +4,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+from app.core.config import get_settings
 from app.db.session import Base, get_db
 from app.main import app
 
@@ -21,6 +22,22 @@ def _reset_rate_limiter():
     get_rate_limiter.cache_clear()
     yield
     get_rate_limiter.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def _no_live_llm_provider_by_default(monkeypatch):
+    # The test suite must never depend on a developer's local .env secrets
+    # or make a real, billed network call to Groq/Anthropic — that's
+    # nondeterministic, slow, and costs real money. Force both keys unset
+    # for every test regardless of what's in apps/api/.env; a test that
+    # actually wants a "configured provider" path constructs one directly
+    # (see test_llm_translation.py / test_decision_synthesis.py) rather
+    # than relying on real settings.
+    monkeypatch.setenv("FORGE_GROQ_API_KEY", "")
+    monkeypatch.setenv("FORGE_ANTHROPIC_API_KEY", "")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 @pytest_asyncio.fixture

@@ -108,3 +108,16 @@ async def test_data_catalog_lists_allowed_tables(client) -> None:
     assert resp.status_code == 200
     assert "customers" in resp.json()["tables"]
     assert "users" not in resp.json()["tables"]
+
+
+@pytest.mark.asyncio
+async def test_data_catalog_includes_real_column_names(client) -> None:
+    # Regression test for a real bug found live: a model given only table
+    # names (no columns) confidently guessed wrong column names
+    # (`invoices.paid`, `invoices.invoice_id`) instead of the real ones.
+    token = await _setup_admin(client, "catalog-schema-org", "admin@catalog-schema-org.com")
+    resp = await client.get("/data/catalog", headers={"Authorization": f"Bearer {token}"})
+    schema = resp.json()["schema"]
+    assert "status" in schema["invoices"]
+    assert "paid" not in schema["invoices"]
+    assert "organization_id" not in schema["invoices"]

@@ -12,9 +12,13 @@ from app.models.agent import AgentRun, AgentStep
 from app.schemas.agent import AgentRunCreate, AgentRunOut, AgentStepOut
 from app.schemas.decision import DecisionOut
 from app.services.agent_runtime import run_agent
-from app.services.decision_synthesis import AnthropicDecisionSynthesizer, DecisionSynthesisError
+from app.services.decision_synthesis import (
+    DecisionSynthesisError,
+    DecisionSynthesizerNotConfiguredError,
+    get_decision_synthesizer,
+)
 from app.services.decisions import get_decision_for_run, synthesize_and_persist_decision
-from app.services.llm import AnthropicProvider
+from app.services.llm import AgentNotConfiguredError, get_llm_provider
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -41,6 +45,7 @@ async def _to_run_out(db: AsyncSession, run: AgentRun) -> AgentRunOut:
         question=run.question,
         status=run.status,
         final_answer=run.final_answer,
+        error=run.error,
         created_at=run.created_at,
         steps=[AgentStepOut.model_validate(step) for step in steps],
     )
@@ -53,12 +58,12 @@ async def create_run(
     db: AsyncSession = Depends(get_db),
 ) -> AgentRunOut:
     settings = get_settings()
-    if not settings.anthropic_api_key:
+    try:
+        provider = get_llm_provider()
+    except AgentNotConfiguredError as exc:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="agent runtime not configured: FORGE_ANTHROPIC_API_KEY is not set",
-        )
-    provider = AnthropicProvider(api_key=settings.anthropic_api_key, model=settings.anthropic_model)
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
 
     run = await run_agent(
         db,
@@ -109,15 +114,12 @@ async def create_decision(
             detail=f"cannot synthesize a decision from a run with status '{run.status}'",
         )
 
-    settings = get_settings()
-    if not settings.anthropic_api_key:
+    try:
+        synthesizer = get_decision_synthesizer()
+    except DecisionSynthesizerNotConfiguredError as exc:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="decision synthesis not configured: FORGE_ANTHROPIC_API_KEY is not set",
-        )
-    synthesizer = AnthropicDecisionSynthesizer(
-        api_key=settings.anthropic_api_key, model=settings.anthropic_model
-    )
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
 
     try:
         decision = await synthesize_and_persist_decision(db, run, synthesizer)

@@ -28,11 +28,12 @@ class Settings(BaseSettings):
     register_rate_limit_max: int = 5
     register_rate_limit_window_seconds: int = 60
 
-    # Unset in this development environment — the agent runtime's real
-    # reasoning provider (AnthropicProvider) is implemented but cannot be
-    # exercised end-to-end without one. See docs/architecture/phase-5-agent-runtime.md.
+    # The agent runtime's reasoning provider needs one of these. If both
+    # are set, Groq is preferred (get_llm_provider() in app/services/llm.py).
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-opus-5"
+    groq_api_key: str | None = None
+    groq_model: str = "openai/gpt-oss-120b"
     agent_max_steps: int = 8
 
 

@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
 import anthropic
+import groq
 
 SYSTEM_PROMPT = (
     "You analyze a completed investigation's tool-call trace and produce "
@@ -115,6 +116,41 @@ def _parse_decision_json(text: str, valid_step_indices: set[int]) -> DecisionDra
     )
 
 
+class GroqDecisionSynthesizer:
+    """Real implementation using Groq's structured-output (json_schema)
+    mode. Has been exercised against a live model in this environment —
+    see docs/architecture/phase-10-groq-and-frontend.md."""
+
+    def __init__(self, api_key: str, model: str) -> None:
+        self._client = groq.AsyncGroq(api_key=api_key)
+        self._model = model
+
+    async def synthesize(self, question: str, steps: list[StepSummary]) -> DecisionDraft:
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            *_build_synthesis_messages(question, steps),
+        ]
+        response = await self._client.chat.completions.create(
+            model=self._model,
+            messages=cast(Any, messages),
+            response_format=cast(
+                Any,
+                {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "decision",
+                        "strict": True,
+                        "schema": DECISION_JSON_SCHEMA,
+                    },
+                },
+            ),
+            max_completion_tokens=2048,
+        )
+        text = response.choices[0].message.content or "{}"
+        valid_indices = {step.step_index for step in steps}
+        return _parse_decision_json(text, valid_indices)
+
+
 class AnthropicDecisionSynthesizer:
     def __init__(self, api_key: str, model: str) -> None:
         self._client = anthropic.AsyncAnthropic(api_key=api_key)
@@ -133,3 +169,22 @@ class AnthropicDecisionSynthesizer:
         text = next(block.text for block in response.content if block.type == "text")
         valid_indices = {step.step_index for step in steps}
         return _parse_decision_json(text, valid_indices)
+
+
+class DecisionSynthesizerNotConfiguredError(Exception):
+    pass
+
+
+def get_decision_synthesizer() -> DecisionSynthesizer:
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    if settings.groq_api_key:
+        return GroqDecisionSynthesizer(api_key=settings.groq_api_key, model=settings.groq_model)
+    if settings.anthropic_api_key:
+        return AnthropicDecisionSynthesizer(
+            api_key=settings.anthropic_api_key, model=settings.anthropic_model
+        )
+    raise DecisionSynthesizerNotConfiguredError(
+        "no reasoning provider configured: set FORGE_GROQ_API_KEY or FORGE_ANTHROPIC_API_KEY"
+    )

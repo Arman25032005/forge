@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import Permission
 from app.services import knowledge_graph, retrieval
-from app.services.sql_tool import SQLValidationError, execute_sql_tool
+from app.services.sql_tool import SCHEMA_DESCRIPTION, SQLValidationError, execute_sql_tool
 
 
 class ToolExecutionError(Exception):
@@ -98,10 +98,11 @@ TOOLS: list[ToolSpec] = [
     ToolSpec(
         name="sql_query",
         description=(
-            "Run a read-only SQL SELECT against the organization's enterprise data "
-            "(customers, products, subscriptions, transactions, support_tickets, "
-            "contracts, invoices, employees, documents). Automatically scoped to "
-            "the caller's own tenant."
+            "Run a read-only SQL SELECT against the organization's enterprise data. "
+            "Automatically scoped to the caller's own tenant (never include or rely "
+            "on an organization_id filter yourself). Exact tables and columns "
+            f"(organization_id exists on every table but is applied automatically, "
+            f"omit it from your query): {SCHEMA_DESCRIPTION}"
         ),
         input_schema={
             "type": "object",
